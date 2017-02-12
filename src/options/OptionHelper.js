@@ -1,4 +1,6 @@
 'use strict';
+const isString = require("lodash/isString");
+const isPlainObject = require("lodash/isPlainObject");
 const defaults = require('./default');
 
 class OptionHelper {
@@ -81,14 +83,21 @@ class OptionHelper {
 
     // Operate on a copy of the plugin, since the webpack task
     // can be called multiple times for one instance of a plugin
-    const instance = Object.create(plugin);
-    Object.keys(plugin).forEach((key) => {
-      if (typeof plugin[key] === 'string') {
-        instance[key] = this.grunt.template.process(plugin[key]);
-      }
-    });
+    const processConfigDeep = (obj) => {
+      const instance = Object.create(obj);
+      Object.keys(obj).forEach((key) => {
+        const val = obj[key];
+        instance[key] = isPlainObject(val)
+          ? processConfigDeep(val)
+          : isString(val)
+            ? this.grunt.template.process(val)
+            : val;
+      });
 
-    return instance;
+      return instance;
+    }
+
+    return processConfigDeep(plugin);
   }
 
   filterGruntOptions(options) {
