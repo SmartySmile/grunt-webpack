@@ -1,23 +1,25 @@
 'use strict';
 const isString = require("lodash/isString");
 const isPlainObject = require("lodash/isPlainObject");
+const deepForEach = require('deep-for-each');
 const defaults = require('./default');
 
 class OptionHelper {
 
-  constructor(grunt, task) {
+  constructor(grunt, taskName, target) {
     this.grunt = grunt;
-    this.task = task;
+    this.taskName = taskName;
+    this.target = target;
   }
 
   generateOptions() {
-    const baseOptions = this.getWithPlugins([this.task.name, 'options']);
+    const baseOptions = this.getWithPlugins([this.taskName, 'options']);
     if (Array.isArray(baseOptions)) throw new Error('webpack.options must be an object, but array was provided');
 
     return defaults.mergeOptions(
       this.getDefaultOptions(),
       baseOptions,
-      this.getWithPlugins([this.task.name, this.task.target])
+      this.getWithPlugins([this.taskName, this.target])
     );
   }
 
@@ -49,31 +51,19 @@ class OptionHelper {
   }
 
   getWithPlugins(ns) {
-    const obj = this.grunt.config(ns) || {};
+    let obj = this.grunt.config.getRaw(ns) || {};
 
-    if (Array.isArray(obj)) {
-      obj.forEach((options, index) => {
-        this.fixPlugins(options, ns.concat([`${index}`, 'plugins']));
-      });
-    } else {
-      if (obj.webpack) {
-        // handle webpack-dev-server options
-        this.fixPlugins(obj.webpack, ns.concat(['webpack', 'plugins']));
-      } else {
-        this.fixPlugins(obj, ns.concat(['plugins']));
+    if (typeof obj === 'function') {
+      obj = obj();
+    }
+
+    deepForEach(obj, function (value, key, parent) {
+      if (typeof value === 'string') {
+        parent[key] = this.grunt.config.process(value);
+      } else if (Array.isArray(value) && key === 'plugins') {
+        parent[key] = value.map(plugin => this.fixPlugin(plugin));
       }
-    }
-
-    return obj;
-  }
-
-  fixPlugins(obj, ns) {
-    if (obj.plugins) {
-      // getRaw must be used or grunt.config will clobber the types (i.e.
-      // the array won't a BannerPlugin, it will contain an Object)
-      const plugins = this.grunt.config.getRaw(ns);
-      obj.plugins = plugins.map(plugin => this.fixPlugin(plugin));
-    }
+    }.bind(this));
 
     return obj;
   }

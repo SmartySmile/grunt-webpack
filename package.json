@@ -1,7 +1,7 @@
 {
   "name": "grunt-webpack",
   "description": "Use webpack with grunt.",
-  "version": "2.0.1",
+  "version": "3.0.0",
   "homepage": "https://github.com/webpack-contrib/grunt-webpack",
   "author": {
     "name": "Tobias Koppers @sokra"
@@ -21,34 +21,33 @@
     "tasks"
   ],
   "peerDependencies": {
-    "webpack": "^2.1.0-beta || ^2.2.0-rc || ^2.0.0"
+    "webpack": "^2.1.0-beta || ^2.2.0-rc || 2"
   },
   "license": "MIT",
   "keywords": [
     "gruntplugin"
   ],
   "scripts": {
-    "coverage": "nyc report --reporter=json && codecov -f coverage/coverage-final.json",
     "lint": "eslint src tasks",
     "preversion": "npm test",
     "test": "npm run lint && npm run test-only",
-    "test-ci": "nyc npm run test-only",
+    "test-coverage": "nyc --reporter=json --reporter=text npm run test-only",
     "test-only": "ava"
   },
   "devDependencies": {
-    "ava": "^0.17.0",
+    "ava": "^0.19.1",
     "babel-core": "^6.17.0",
-    "babel-loader": "^6.2.9",
+    "babel-loader": "^7.0.0",
     "babel-preset-latest": "^6.16.0",
-    "codecov": "^1.0.1",
     "eslint": "^3.6.1",
-    "fs-extra": "^2.0.0",
+    "fs-extra": "^3.0.1",
     "glob": "^7.0.5",
     "grunt": "^1.0.0",
     "nyc": "^10.0.0",
     "webpack": "^2.2.0"
   },
   "dependencies": {
+    "deep-for-each": "^1.0.5",
     "lodash": "^4.7.0"
   },
   "ava": {
@@ -60,6 +59,7 @@
     ]
   },
   "nyc": {
+    "all": true,
     "include": [
       "src/",
       "tasks/"

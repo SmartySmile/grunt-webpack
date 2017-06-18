@@ -2,7 +2,26 @@
 const webpack = require('webpack');
 const OptionHelper = require('../src/options/WebpackDevServerOptionHelper');
 const ProgressPluginFactory = require('../src/plugins/ProgressPluginFactory');
-const HotModuleReplacementPluginFactory = require('../src/plugins/HotModuleReplacementPluginFactory');
+
+function colorInfo(useColor, msg) {
+  // Make text blue and bold, so it *pops*
+  if (useColor) return `\u001b[1m\u001b[34m${msg}\u001b[39m\u001b[22m`;
+
+  return msg;
+}
+
+function reportReadiness(uri, options, grunt) {
+  const useColor = !options.stats || options.stats.colors;
+
+  grunt.log.writeln((options.progress ? '\n' : '') + `Project is running at ${colorInfo(useColor, uri)}`);
+
+  grunt.log.writeln(`webpack output is served from ${colorInfo(useColor, options.publicPath)}`);
+  const contentBase = Array.isArray(options.contentBase) ? options.contentBase.join(', ') : options.contentBase;
+  if (contentBase)
+    grunt.log.writeln(`Content not from webpack is served from ${colorInfo(useColor, contentBase)}`);
+  if (options.historyApiFallback)
+    grunt.log.writeln(`404s will fallback to ${colorInfo(useColor, options.historyApiFallback.index || '/index.html')}`);
+}
 
 module.exports = (grunt) => {
   let WebpackDevServer;
@@ -14,61 +33,51 @@ module.exports = (grunt) => {
         `webpack-dev-server is currently not installed, this task will do nothing.
 
 To fix this problem install webpack-dev-server by doing either
-npm install --save webpack-dev-server 
-or 
-yarn add webpack-dev-server`);
+yarn add webpack-dev-server --dev
+or
+npm install --save-dev webpack-dev-server
+`);
     });
     return;
   }
 
+  if (typeof WebpackDevServer.addDevServerEntrypoints !== 'function') {
+    grunt.fail.fatal('webpack-dev-server is outdated. Please ensure you have at least version 2.4.0 installed.');
+  }
+
+  const createDomain = require('webpack-dev-server/lib/util/createDomain');
   const processPluginFactory = new ProgressPluginFactory(grunt);
-  const hotModuleReplacementPluginFactory = new HotModuleReplacementPluginFactory(grunt);
 
-  grunt.registerMultiTask('webpack-dev-server', 'Start a webpack-dev-server.', function webpackDevServerTask() {
+  grunt.registerTask('webpack-dev-server', 'Start a webpack-dev-server.', function webpackDevServerTask(cliTarget) {
     const done = this.async();
-    const optionHelper = new OptionHelper(grunt, this);
 
-    const opts = {
-      host: optionHelper.get('host'),
-      hot: optionHelper.get('hot'),
-      https: optionHelper.get('https'),
-      inline: optionHelper.get('inline'),
-      keepalive: optionHelper.get('keepalive'),
-      port: optionHelper.get('port'),
-      progress: optionHelper.get('progress')
-    };
+    const targets = cliTarget ? [cliTarget] : Object.keys(grunt.config([this.name]));
+    let runningTargetCount = targets.length;
+    let keepalive = false;
 
-    const webpackOptions = optionHelper.getWebpackOptions();
+    targets.forEach((target) => {
+      if (target === 'options') return;
+      const optionHelper = new OptionHelper(grunt, this.name, target);
+      const opts = optionHelper.getOptions();
+      const webpackOptions = optionHelper.getWebpackOptions();
 
-    if (opts.inline) {
-      const protocol = opts.https ? 'https' : 'http';
-      const devClient = [
-        `webpack-dev-server/client?${protocol}://${opts.host}:${opts.port}`
-      ];
-      if (opts.hot) devClient.push('webpack/hot/dev-server');
+      WebpackDevServer.addDevServerEntrypoints(webpackOptions, opts);
 
-      // TODO can ww extract that and make it nice
-      [].concat(webpackOptions).forEach((webpackOptions) => {
-        if (typeof webpackOptions.entry === 'object' && !Array.isArray(webpackOptions.entry)) {
-          Object.keys(webpackOptions.entry).forEach((key) => {
-            webpackOptions.entry[key] = devClient.concat(webpackOptions.entry[key]);
-          });
-        } else {
-          webpackOptions.entry = devClient.concat(webpackOptions.entry);
-        }
+      if (opts.inline && (opts.hotOnly || opts.hot)) {
+        webpackOptions.plugins = webpackOptions.plugins || [];
+        webpackOptions.plugins.push(new webpack.HotModuleReplacementPlugin());
+      }
+
+      const compiler = webpack(webpackOptions);
+
+      if (opts.progress) processPluginFactory.addPlugin(compiler, webpackOptions);
+
+      (new WebpackDevServer(compiler, optionHelper.getWebpackDevServerOptions())).listen(opts.port, opts.host, () => {
+        const uri = createDomain(opts) + (opts.inline !== false || opts.lazy === true ? '/' : '/webpack-dev-server/');
+        reportReadiness(uri, opts, grunt);
+        keepalive = keepalive || opts.keepalive;
+        if (--runningTargetCount === 0 && !keepalive) done();
       });
-    }
-
-    const compiler = webpack(webpackOptions);
-
-    if (opts.progress) processPluginFactory.addPlugin(this.target, compiler);
-
-    // TODO does this work? or do we add the module in the initial config?
-    if (opts.inline && opts.hot) hotModuleReplacementPluginFactory.addPlugin(this.target, compiler);
-
-    (new WebpackDevServer(compiler, optionHelper.getWebpackDevServerOptions())).listen(opts.port, opts.host, () => {
-      grunt.log.writeln(`\rwebpack-dev-server on port ${opts.port}  `);
-      if (!opts.keepalive) done();
     });
   });
 };

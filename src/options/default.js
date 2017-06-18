@@ -3,43 +3,40 @@
 const mergeWith = require('lodash/mergeWith');
 
 const gruntOptions = {
-  failOnError: true,
+  failOnError: (options) => {
+    // if watch enabled also default to failOnError false
+    return Array.isArray(options) ? options.every(option => !option.watch) : !options.watch;
+  },
   progress: process.stdout.isTTY,
   storeStatsTo: null,
   keepalive: (options) => {
     // if watch enabled also default to keepalive true
-    return Array.isArray(options) ? options.some(option => option.watch) : Boolean(options.watch);
+    return Array.isArray(options) ? options.some(option => option.watch) : !!options.watch;
   },
-  inline: false,
 };
 
 const webpackOptions = {
   stats: {
+    cached: false,
+    cachedAssets: false,
     colors: true,
-    hash: false,
-    timings: false,
-    assets: true,
-    chunks: false,
-    chunkModules: false,
-    modules: false,
-    children: true,
   },
+  cache: (options) => {
+    // if watch enabled also default to cache true
+    return Array.isArray(options) ? options.some(option => option.watch) : !!options.watch;
+  }
 };
 
 const webpackDevServerOptions = {
   port: 8080,
   host: 'localhost',
-  hot: false,
+  inline: true,
   keepalive: true,
+  publicPath: '/',
   stats: {
     colors: true,
-    hash: false,
-    timings: false,
-    assets: true,
-    chunks: false,
-    chunkModules: false,
-    modules: false,
-    children: true
+    cached: false,
+    cachedAssets: false
   },
 };
 
