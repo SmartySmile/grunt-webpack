@@ -74,6 +74,7 @@ class OptionHelper {
     // Operate on a copy of the plugin, since the webpack task
     // can be called multiple times for one instance of a plugin
     const processConfigDeep = (obj) => {
+      if (typeof obj !== 'object') { return obj; }
       const instance = Object.create(obj);
       Object.keys(obj).forEach((key) => {
         const val = obj[key];
