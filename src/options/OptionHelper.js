@@ -1,6 +1,6 @@
 'use strict';
-const isString = require("lodash/isString");
-const isPlainObject = require("lodash/isPlainObject");
+const isString = require('lodash/isString');
+const isPlainObject = require('lodash/isPlainObject');
 const deepForEach = require('deep-for-each');
 const defaults = require('./default');
 
@@ -93,7 +93,7 @@ class OptionHelper {
       });
 
       return instance;
-    }
+    };
 
     return processConfigDeep(plugin);
   }
